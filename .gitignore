@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.DS_Store
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+anaconda3/
+
+# IDE
+.vscode/
+.idea/
+
+# Large Outputs (Optional, comment out if you want to track them)
+*.png
+*.gif
+*.csv
