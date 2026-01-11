@@ -14,14 +14,34 @@ Where $\mathcal{A}$ is a sparse subset of active ingredients ($|\mathcal{A}| \ll
 
 | File | Description |
 | :--- | :--- |
-| `scheffe_generator.py` | **The Oracle.** Generates sparse mixture functions with $D$ dimensions. Supports 'Synergism', 'Linear', and 'Antagonism' variants. |
-| `BO_test1.py` | **The Loop.** Runs a BO experiment using BoTorch. Includes a `TernaryAnimator` class that generates GIFs of the optimization dynamics (Truth vs. Acquisition). |
-| `interactive_mixture.py` | **Visualization.** A Matplotlib GUI with sliders to manually adjust $\beta$ coefficients and see the resulting Ternary landscape in real-time. |
-| `generator_check.py` | **Unit Tests.** Verifies that generated samples satisfy simplex constraints and sparsity requirements. |
+| `src/scheffe_generator.py` | **The Oracle.** Generates sparse mixture functions with $D$ dimensions. |
+| `scripts/benchmark_bo.py` | **The Loop.** Runs a BO experiment using BoTorch. |
+| `scripts/visualize_interactive.py` | **Visualization.** GUI with sliders to adjust $\beta$ coefficients. |
+| `scripts/check_validity.py` | **Unit Tests.** Verifies constraints and sparsity. |
+| `results/` | **Outputs.** All plots and GIFs are saved here. |
 
 ## 3. Usage
 
-### A. Verify the Generator
-Check that the math holds and constraints are respected:
+### 1. Prerequisite (One-time)
+If you (or your collaborators) haven't done it yet, install the package in editable mode:
 ```bash
-python generator_check.py
+pip install -e .
+```
+
+### 2. Running the Scripts
+Run these commands from the **root directory**:
+
+*   **Benchmark Loop (creates GIF in `results/`):**
+    ```bash
+    python scripts/benchmark_bo.py
+    ```
+
+*   **Sanity Check (creates PNG in `results/`):**
+    ```bash
+    python scripts/check_validity.py
+    ```
+
+*   **Interactive Visualization:**
+    ```bash
+    python scripts/visualize_interactive.py
+    ```
