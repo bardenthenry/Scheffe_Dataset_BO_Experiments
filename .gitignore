@@ -20,3 +20,8 @@ anaconda3/
 *.png
 *.gif
 *.csv
+
+# Restructuring
+src/*.egg-info/
+results/*
+!results/.gitkeep

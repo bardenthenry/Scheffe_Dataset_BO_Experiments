@@ -179,10 +179,15 @@ def run_suite():
     fig.suptitle("Scheffe Mixture Landscapes: Synthetic Benchmark Suite", fontsize=16)
     
     # Save
-    save_path = 'mixture_landscapes.png'
+    import os
+    output_dir = os.path.join(os.path.dirname(__file__), "..", "results")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        
+    save_path = os.path.join(output_dir, 'mixture_landscapes.png')
     plt.savefig(save_path, dpi=150, bbox_inches='tight')
     print(f"Suite saved to {save_path}")
-    plt.show()
+    # plt.show()
 
 if __name__ == "__main__":
     run_suite()
