@@ -25,3 +25,6 @@ anaconda3/
 src/*.egg-info/
 results/*
 !results/.gitkeep
+
+# Datasets
+datasets/

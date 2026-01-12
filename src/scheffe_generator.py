@@ -32,6 +32,9 @@ class ScheffeGenerator:
         else:
             self.k = int(k_active)
             
+        # Safety clamp: k cannot exceed D
+        self.k = min(self.k, self.D)
+            
         # State to store the 'Ground Truth' coefficients
         self.active_indices = None
         self.beta_linear = np.zeros(D)
