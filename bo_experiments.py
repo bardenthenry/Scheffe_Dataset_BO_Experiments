@@ -4,11 +4,12 @@ import os
 import torch
 import matplotlib.pyplot as plt
 import math
+import json
 import argparse
 from botorch.models import SingleTaskGP
 from botorch.fit import fit_gpytorch_mll
 from botorch.optim import optimize_acqf
-from botorch.acquisition import ExpectedImprovement, LogExpectedImprovement
+from botorch.acquisition import ExpectedImprovement, LogExpectedImprovement, PosteriorMean
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from botorch.utils.transforms import unnormalize, normalize
 from pprint import pprint
@@ -103,7 +104,7 @@ def BO_with_GP_EI_and_PGA(
         candidate = optimize_acqf_pga(EI, n_features=n_features)
         
         # Get New Observe Data
-        new_y = gt_func( X=candidate.cpu().numpy())
+        new_y = gt_func( X=candidate.cpu().numpy(), noiseless=True)
 
         # Compute Simple Regret
         max_train_obj = train_obj.max().item()
@@ -123,7 +124,7 @@ def BO_with_GP_EI_and_PGA(
     output = {
         'inference_regrets': inference_regrets,
         'simple_regrets': simple_regrets,
-        'opt_x': candidate.cpu().numpy(),
+        'opt_x': candidate.cpu().numpy().tolist(),
         'opt_y': float(new_y[0])
     }
 
@@ -141,6 +142,20 @@ def BO_with_GP_EI_and_SLSQP(
         mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
         fit_gpytorch_mll(mll)
 
+        # Find Surrogate Model Best Point
+        post_mean_func = PosteriorMean(model=gp)
+        best_predicted_x, _ = optimize_acqf(
+            acq_function=post_mean_func,
+            bounds=bounds,
+            q=1,
+            num_restarts=10,
+            raw_samples=100,
+            equality_constraints=constraints,
+        )
+
+        # Get New Observe Data
+        new_y = gt_func( X=best_predicted_x.cpu().numpy(), noiseless=True)
+
         # Set Acquisition Function
         best_f = train_obj.max().item()
         EI = LogExpectedImprovement(model=gp, best_f=best_f)
@@ -154,10 +169,11 @@ def BO_with_GP_EI_and_SLSQP(
             raw_samples=100,         # 初始採樣點數量
             equality_constraints=constraints,
         )
-        
-        # Get New Observe Data
-        new_y = gt_func( X=candidate.cpu().numpy())
 
+        # Combine Old and New Observe Data
+        train_x = torch.cat([train_x, candidate])
+        train_obj = torch.cat([train_obj, torch.tensor(new_y, device=device).unsqueeze(0) ])
+        
         # Compute Simple Regret
         max_train_obj = train_obj.max().item()
         simple_regret = gt_y - max_train_obj
@@ -166,17 +182,13 @@ def BO_with_GP_EI_and_SLSQP(
         # Compute Inference Regrets
         infer_regret = float((gt_y - new_y)[0])
         inference_regrets.append(infer_regret)
-
-        # Combine Old and New Observe Data
-        train_x = torch.cat([train_x, candidate])
-        train_obj = torch.cat([train_obj, torch.tensor(new_y, device=device).unsqueeze(0) ])
-
+        
         print(f'Epoch {i+1}: Real Best Value: {gt_y:.2f}, Max Train Obj = {max_train_obj:.2f}, Current Train Obj = {float(new_y[0]):.2f}, Simple Regret = {simple_regret:.2f}, Infer Regret = {infer_regret:.2f}, SumX = {candidate.sum().item():.1f}')
     
     output = {
         'inference_regrets': inference_regrets,
         'simple_regrets': simple_regrets,
-        'opt_x': candidate.cpu().numpy(),
+        'opt_x': candidate.cpu().numpy().tolist(),
         'opt_y': float(new_y[0])
     }
 
@@ -228,15 +240,14 @@ def run_single_bo_experiments(dataset_path, n_iterations, constraints_method='SL
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate Scheffe Benchmark Suite")
-    parser.add_argument("--plot_path", type=str, default='output.png', help="output plot file path")
+    parser.add_argument("--result_path", type=str, default='result.json', help="output bo result path")
     parser.add_argument("--data_dir", type=str, default='./datasets/D=5_N=5', help="dataset directory")
     parser.add_argument("--const_method", type=str, default='SLSQP', help="constraints method = PGA or SLSQP")
     parser.add_argument("--niter", type=int, default=20, help="Number of iter")
 
-
     args = parser.parse_args()
 
-    output_plot_file_name = args.plot_path
+    result_path = args.result_path
     n_iterations = args.niter
     dataset_dir = args.data_dir
     constraints_method=args.const_method
@@ -252,74 +263,78 @@ if __name__ == '__main__':
         result = run_single_bo_experiments(dataset_path, n_iterations=n_iterations, constraints_method=constraints_method)
         results.append(result)
 
-    # 畫圖
-    num_exps = len(dataset_paths)  # 這裡設定為 15
+    # 輸出成 json
+    with open(result_path, 'w') as json_file:
+        json_file.write(json.dumps(results, indent=4))
 
-    # 設定網格
-    rows, cols = find_factors_x_ge_y(num_exps)
+    # # 畫圖
+    # num_exps = len(dataset_paths)  # 這裡設定為 15
 
-    # 建立畫布，figsize 寬度 18, 高度 20 (可以根據螢幕大小調整)
-    fig, axes = plt.subplots(rows, cols, figsize=(18, 20))
-    axes = axes.flatten()  # 將 5x3 的二維陣列拉平，方便用 for 迴圈遍歷
+    # # 設定網格
+    # rows, cols = find_factors_x_ge_y(num_exps)
 
-    for i in range(num_exps):
-        ax = axes[i]
+    # # 建立畫布，figsize 寬度 18, 高度 20 (可以根據螢幕大小調整)
+    # fig, axes = plt.subplots(rows, cols, figsize=(18, 20))
+    # axes = axes.flatten()  # 將 5x3 的二維陣列拉平，方便用 for 迴圈遍歷
+
+    # for i in range(num_exps):
+    #     ax = axes[i]
         
-        # 這裡提取資料 (請確保 results[i] 存在)
-        inf_reg = results[i]['result']['inference_regrets']
-        sim_reg = results[i]['result']['simple_regrets']
-        iters = range(1, len(inf_reg) + 1)
+    #     # 這裡提取資料 (請確保 results[i] 存在)
+    #     inf_reg = results[i]['result']['inference_regrets']
+    #     sim_reg = results[i]['result']['simple_regrets']
+    #     iters = range(1, len(inf_reg) + 1)
         
-        # 繪製 Inference Regret (藍色小點+虛線)
-        ax.plot(
-            iters, inf_reg, 
-            label='Inference Regret', 
-            color='midnightblue',    # 改用深藍色
-            marker='o',              # 加上圓點點
-            markersize=3, 
-            linestyle='-',           # 改為實線（若要更明顯）
-            linewidth=1.2, 
-            alpha=0.5               # 提高不透明度
-        )
+    #     # 繪製 Inference Regret (藍色小點+虛線)
+    #     ax.plot(
+    #         iters, inf_reg, 
+    #         label='Inference Regret', 
+    #         color='midnightblue',    # 改用深藍色
+    #         marker='o',              # 加上圓點點
+    #         markersize=3, 
+    #         linestyle='-',           # 改為實線（若要更明顯）
+    #         linewidth=1.2, 
+    #         alpha=0.5               # 提高不透明度
+    #     )
         
-        # 繪製 Simple Regret (紅色階梯線)
-        ax.step(
-            iters, sim_reg, 
-            label='Simple Regret (Best)', 
-            color='firebrick',       # 深紅色
-            where='post', 
-            linewidth=2.5
-        )
+    #     # 繪製 Simple Regret (紅色階梯線)
+    #     ax.step(
+    #         iters, sim_reg, 
+    #         label='Simple Regret (Best)', 
+    #         color='firebrick',       # 深紅色
+    #         where='post', 
+    #         linewidth=2.5
+    #     )
         
-        # 取得檔名後 15 個字元作為標題，避免太長
-        file_info = os.path.basename(results[i].get('dataset_path', f'Exp_{i+1}'))
-        ax.set_title(f"Trial {i+1}\n{file_info[-20:]}", fontsize=10)
+    #     # 取得檔名後 15 個字元作為標題，避免太長
+    #     file_info = os.path.basename(results[i].get('dataset_path', f'Exp_{i+1}'))
+    #     ax.set_title(f"Trial {i+1}\n{file_info[-20:]}", fontsize=10)
         
-        # 圖表細節優化
-        ax.axhline(0, color='black', linewidth=0.8, linestyle='--') # 零線
-        ax.grid(True, which='both', linestyle='--', alpha=0.3)
+    #     # 圖表細節優化
+    #     ax.axhline(0, color='black', linewidth=0.8, linestyle='--') # 零線
+    #     ax.grid(True, which='both', linestyle='--', alpha=0.3)
         
-        # 只有最左邊的圖顯示 Y 軸標籤，最下方的圖顯示 X 軸標籤
-        if i % cols == 0:
-            ax.set_ylabel('Regret Value')
-        if i >= num_exps - cols:
-            ax.set_xlabel('Iterations')
+    #     # 只有最左邊的圖顯示 Y 軸標籤，最下方的圖顯示 X 軸標籤
+    #     if i % cols == 0:
+    #         ax.set_ylabel('Regret Value')
+    #     if i >= num_exps - cols:
+    #         ax.set_xlabel('Iterations')
             
-        # 在第一張圖顯示圖例
-        if i == 0:
-            ax.legend(loc='upper right', fontsize='small')
+    #     # 在第一張圖顯示圖例
+    #     if i == 0:
+    #         ax.legend(loc='upper right', fontsize='small')
 
-    # 如果實驗不足 15 次，隱藏多餘的空白子圖
-    for j in range(num_exps, len(axes)):
-        axes[j].axis('off')
+    # # 如果實驗不足 15 次，隱藏多餘的空白子圖
+    # for j in range(num_exps, len(axes)):
+    #     axes[j].axis('off')
 
-    # 自動調整佈局，避免標題與座標軸重疊
-    plt.tight_layout()
+    # # 自動調整佈局，避免標題與座標軸重疊
+    # plt.tight_layout()
 
-    plt.savefig(output_plot_file_name, dpi=300, bbox_inches='tight')
+    # plt.savefig(output_plot_file_name, dpi=300, bbox_inches='tight')
 
-    # # 顯示圖片
-    # plt.show()
+    # # # 顯示圖片
+    # # plt.show()
 
-    # plt.close()
+    # # plt.close()
 
