@@ -153,8 +153,8 @@ def BO_with_GP_EI_and_SLSQP(
             equality_constraints=constraints,
         )
 
-        # Get New Observe Data
-        new_y = gt_func( X=best_predicted_x.cpu().numpy(), noiseless=True)
+        # Get New Model Best Oracle Data
+        infer_new_y = gt_func( X=best_predicted_x.cpu().numpy(), noiseless=True)
 
         # Set Acquisition Function
         best_f = train_obj.max().item()
@@ -170,6 +170,8 @@ def BO_with_GP_EI_and_SLSQP(
             equality_constraints=constraints,
         )
 
+        new_y = gt_func( X=candidate.cpu().numpy(), noiseless=True)
+
         # Combine Old and New Observe Data
         train_x = torch.cat([train_x, candidate])
         train_obj = torch.cat([train_obj, torch.tensor(new_y, device=device).unsqueeze(0) ])
@@ -180,9 +182,9 @@ def BO_with_GP_EI_and_SLSQP(
         simple_regrets.append(simple_regret)
 
         # Compute Inference Regrets
-        infer_regret = float((gt_y - new_y)[0])
+        infer_regret = float((gt_y - infer_new_y)[0])
         inference_regrets.append(infer_regret)
-        
+
         print(f'Epoch {i+1}: Real Best Value: {gt_y:.2f}, Max Train Obj = {max_train_obj:.2f}, Current Train Obj = {float(new_y[0]):.2f}, Simple Regret = {simple_regret:.2f}, Infer Regret = {infer_regret:.2f}, SumX = {candidate.sum().item():.1f}')
     
     output = {
