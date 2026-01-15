@@ -80,7 +80,7 @@ def plot_regret_grid(results_list, regret_key, title_prefix, filename, color, pl
     # 總標題調整
     log_status = "(Log Scale)" if is_log else "(Linear Scale)"
     fig.suptitle(f"{title_prefix} {log_status}", fontsize=18, y=1.02)
-    fig.suptitle(f"Comparison of {title_prefix} across {num_exps} Trials", fontsize=16, y=1.02)
+    # fig.suptitle(f"Comparison of {title_prefix} across {num_exps} Trials", fontsize=16, y=1.02)
 
     plt.tight_layout()
     plt.savefig(filename, dpi=300, bbox_inches='tight')
@@ -108,15 +108,17 @@ if __name__ == '__main__':
         all_results = json.load(file)
 
     simple_regrets_plot_name = result_name
+    title_prefix = 'Simple Regret (Best So Far)'
     if is_log:
         simple_regrets_plot_name += '_Log'
+        # title_prefix = 'Log Simple Regret (Best So Far)'
     simple_regrets_plot_name += '_Simple_Regret.png'
     simple_regrets_plot_path = os.path.join(output_plot_dir, simple_regrets_plot_name)
 
     plot_regret_grid(
         results_list=all_results,
         regret_key='simple_regrets',
-        title_prefix='Simple Regret (Best So Far)',
+        title_prefix=title_prefix,
         filename=simple_regrets_plot_path,
         color='firebrick',    # 用深紅色來區分
         plot_type='step',
@@ -124,15 +126,17 @@ if __name__ == '__main__':
     )
 
     inference_regrets_plot_name = result_name
+    title_prefix='Inference Regret'
     if is_log:
         inference_regrets_plot_name += '_Log'
+        # title_prefix='Log Inference Regret',
     inference_regrets_plot_name += '_Infer_Regret.png'
     inference_regrets_plot_path = os.path.join(output_plot_dir, inference_regrets_plot_name)
 
     plot_regret_grid(
         results_list=all_results,
         regret_key='inference_regrets',
-        title_prefix='Log Inference Regret',
+        title_prefix=title_prefix,
         filename=inference_regrets_plot_path,
         color='midnightblue',  # 你要求的深一點的顏色
         plot_type='line',

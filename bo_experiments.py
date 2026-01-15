@@ -7,6 +7,7 @@ import math
 import json
 import argparse
 from botorch.models import SingleTaskGP
+from botorch.models.transforms import Standardize
 from botorch.fit import fit_gpytorch_mll
 from botorch.optim import optimize_acqf
 from botorch.acquisition import ExpectedImprovement, LogExpectedImprovement, PosteriorMean
@@ -138,19 +139,27 @@ def BO_with_GP_EI_and_SLSQP(
 
     for i in range(n_iterations):
         # Fit GP surrogate model
-        gp = SingleTaskGP(train_x, train_obj)
+        gp = SingleTaskGP(
+            train_x,
+            train_obj,
+            outcome_transform=Standardize(m=train_obj.shape[-1])
+        )
         mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
         fit_gpytorch_mll(mll)
 
         # Find Surrogate Model Best Point
         post_mean_func = PosteriorMean(model=gp)
+        best_idx = train_obj.argmax() # 尋找 train_obj 中最好的點的 index
+        x_best_known = train_x[best_idx].unsqueeze(0)  # train data 中最好的那一筆資料
+
         best_predicted_x, _ = optimize_acqf(
             acq_function=post_mean_func,
             bounds=bounds,
             q=1,
-            num_restarts=10,
-            raw_samples=100,
+            num_restarts=20,
+            raw_samples=512,
             equality_constraints=constraints,
+            batch_initial_conditions=x_best_known.unsqueeze(1) 
         )
 
         # Get New Model Best Oracle Data
@@ -257,6 +266,10 @@ if __name__ == '__main__':
     dataset_names = [n for n in os.listdir(dataset_dir) if '.pt' in n]
     dataset_names.sort()
     dataset_paths = [os.path.join(dataset_dir, n) for n in dataset_names]
+
+    result_dir = os.path.split(result_path)[0]
+    if not os.path.isdir(result_dir):
+        os.makedirs(result_dir)
 
     # 執行 BO
     results = []
