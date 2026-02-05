@@ -7,12 +7,14 @@ class ScheffeGenerator:
     Generates synthetic datasets based on Scheffe's Quadratic Mixture Models.
     Supports variable sparsity (k sampled from range) and low-dim debugging.
     """
-    def __init__(self, 
-                 D: int = 20, 
-                 k_active: Union[int, Tuple[int, int]] = (6, 12), 
-                 variant: str = 'B', 
-                 noise_std: float = 0.01,
-                 seed: int = 42):
+    def __init__(
+        self, 
+        D: int = 20, 
+        k_active: Union[int, Tuple[int, int]] = (6, 12), 
+        variant: str = 'B', 
+        noise_std: float = 0.01,
+        seed: int = 42
+    ):
         """
         Args:
             D: Total dimensionality.

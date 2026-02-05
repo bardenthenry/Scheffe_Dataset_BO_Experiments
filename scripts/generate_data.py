@@ -45,7 +45,7 @@ def find_ground_truth(gen, restarts=20):
             
     return best_x, best_val
 
-def generate_suite(D, N_datasets, N_init_samples=10):
+def generate_suite(D, N_datasets, k, N_init_samples=10):
     """
     Generates a full benchmark suite for a given Dimension D.
     Creates N_datasets for EACH variant (A, B, C).
@@ -55,7 +55,7 @@ def generate_suite(D, N_datasets, N_init_samples=10):
     
     # 1. Setup Directory Structure
     root_dir = os.path.join(os.path.dirname(__file__), '..')
-    suite_dir_name = f"D={D}_N={N_datasets}"
+    suite_dir_name = f"D={D}_N={N_datasets}_K={k}"
     data_dir = os.path.join(root_dir, "datasets", suite_dir_name)
     os.makedirs(data_dir, exist_ok=True)
     
@@ -78,7 +78,16 @@ def generate_suite(D, N_datasets, N_init_samples=10):
             
             # Instantiate
             # Note: noise_std is set to 0.01 as per standard benchmarks
-            gen = ScheffeGenerator(D=D, variant=variant, seed=seed, noise_std=0.01)
+            '''
+            D: int = 20, 
+            k_active: Union[int, Tuple[int, int]] = (6, 12), 
+            variant: str = 'B', 
+            noise_std: float = 0.01,
+            seed: int = 42
+            '''
+            gen = ScheffeGenerator(
+                D=D, k_active=k, variant=variant, noise_std=0.01, seed=seed
+            )
             
             # Initial Data
             X_init = gen.sample_inputs(N_init_samples)
@@ -88,7 +97,7 @@ def generate_suite(D, N_datasets, N_init_samples=10):
             true_x, true_val = find_ground_truth(gen)
             
             dataset = {
-                "config": {"D": D, "variant": variant, "seed": seed},
+                "config": {"D": D, "variant": variant, "seed": seed, "k_active": k},
                 "initial_data": {
                     "X": torch.tensor(X_init, dtype=torch.float64),
                     "Y": torch.tensor(y_init, dtype=torch.float64).unsqueeze(-1)
@@ -127,7 +136,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate Scheffe Benchmark Suite")
     parser.add_argument("--d", type=int, default=20, help="Dimension of the problem")
     parser.add_argument("--n", type=int, default=5, help="Number of datasets per variant")
+    parser.add_argument("--k", type=int, default=5, help="Number of active components")
+    parser.add_argument("--n_int", type=int, default=5, help="Number of initial samples")
     
     args = parser.parse_args()
-    
-    generate_suite(D=args.d, N_datasets=args.n)
+    generate_suite(D=args.d, N_datasets=args.n, k=args.k, N_init_samples=args.n_int)
